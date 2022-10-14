@@ -14,7 +14,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.acres.ble.Test
 import com.acres.blesdk.ui.theme.BleSdkTheme
 
 class MainActivity : ComponentActivity() {
@@ -34,7 +33,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Greeting(name: String) {
 
-    Text(text = "Hello ${Test().sayHello()}!")
+    Text(text = "Hello $name!")
 }
 
 @Preview(showBackground = true)
