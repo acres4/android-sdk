@@ -37,6 +37,7 @@ dependencies {
     implementation(Libs.NordicBLE.dfu)
     implementation(Libs.NordicBLE.bleKtx)
     implementation(Libs.NordicBLE.bleScanner)
+    implementation("androidx.core:core:1.9.0")
 
     // Testing.
     androidTestImplementation(Libs.DependencyInjection.hiltAndroidTesting)
