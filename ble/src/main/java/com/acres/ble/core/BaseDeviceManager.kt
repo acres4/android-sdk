@@ -7,6 +7,7 @@ package com.acres.ble.core
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import androidx.activity.result.contract.ActivityResultContracts
 import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.core.model.BleScannerError.*
 import com.acres.ble.core.model.ScannerState
@@ -29,11 +30,18 @@ constructor(
     private val ioDispatcher: CoroutineDispatcher,
     private val computationDispatcher: CoroutineDispatcher,
     private val scanner: BluetoothLeScannerCompat = BluetoothLeScannerCompat.getScanner(),
+    private val logger: BleLogger,
 ) : BleManager(context) {
+
+    val bluetoothPermissionLauncher = ActivityResultContracts.RequestMultiplePermissions()
 
     private var scanCallback: ScanCallback? = null
 
     override fun getGattCallback(): BleManagerGattCallback = AcresBleManagerGattCallback()
+
+    override fun log(priority: Int, message: String) {
+        logger.logDebug("priority:$priority,message:$message} ")
+    }
 
     private inner class AcresBleManagerGattCallback : BleManagerGattCallback() {
         override fun isRequiredServiceSupported(gatt: BluetoothGatt): Boolean {
@@ -83,7 +91,6 @@ constructor(
                 (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
             if (bleAdapter?.isEnabled == false) {
                 send(ScannerState.Error(SCAN_FAILED_BLUETOOTH_NOT_ENABLED))
-                close()
             }
 
             val scanSettings =
@@ -113,6 +120,7 @@ constructor(
     private fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
 
     private fun handleError(error: BleScannerError) {
+        logger.logError("scan failed with ${error.name}")
         if (error != NO_ERROR) {
             stopScan()
         }

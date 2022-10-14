@@ -38,6 +38,8 @@ dependencies {
     implementation(Libs.NordicBLE.bleKtx)
     implementation(Libs.NordicBLE.bleScanner)
     implementation("androidx.core:core:1.9.0")
+    implementation("androidx.activity:activity-ktx:1.6.0")
+    implementation("androidx.appcompat:appcompat:1.5.1")
 
     // Testing.
     androidTestImplementation(Libs.DependencyInjection.hiltAndroidTesting)
