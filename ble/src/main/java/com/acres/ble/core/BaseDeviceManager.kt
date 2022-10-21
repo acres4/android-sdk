@@ -60,7 +60,7 @@ constructor(
 
     abstract fun clearCharacteristics()
 
-    private suspend fun startScanFlow(reportDelay: Long = 2000) =
+    suspend fun startScanFlow(reportDelay: Long = 2000) =
         callbackFlow {
             scanCallback =
                 object : ScanCallback() {
