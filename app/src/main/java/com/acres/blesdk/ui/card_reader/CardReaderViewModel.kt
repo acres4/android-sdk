@@ -5,5 +5,10 @@
 package com.acres.blesdk.ui.card_reader
 
 import androidx.lifecycle.ViewModel
+import com.acres.ble.card_reader.CardReaderDeviceManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class CardReaderViewModel : ViewModel()
+@HiltViewModel
+class CardReaderViewModel @Inject constructor(cardReaderDeviceManager: CardReaderDeviceManager) :
+    ViewModel()
