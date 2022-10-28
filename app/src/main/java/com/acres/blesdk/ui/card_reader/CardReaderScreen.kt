@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -27,13 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.acres.blesdk.R
 import com.acres.blesdk.ui.components.SlotMachinePainter
-import com.acres.blesdk.ui.components.TypewriterText
 
+@OptIn(ExperimentalLifecycleComposeApi::class)
 @Composable
 fun CardReaderScreen(
     viewModel: CardReaderViewModel = hiltViewModel(),
@@ -43,6 +46,8 @@ fun CardReaderScreen(
     val customPainter = remember { SlotMachinePainter(slotMachineImage) }
 
     val infiniteTransition = rememberInfiniteTransition()
+
+    val state by viewModel.cardReaderState.collectAsStateWithLifecycle()
 
     val scale by
     infiniteTransition.animateFloat(
@@ -83,10 +88,10 @@ fun CardReaderScreen(
             Modifier
                 //                .offset(x = (customPainter.size.width * 0.18f).dp,
                 //                    y = (customPainter.size.height * 0.12f).dp)
-                .fillMaxHeight(0.2f)
+                .fillMaxHeight(0.3f)
                 .fillMaxWidth(0.4f)
                 .constrainAs(loadingText) {
-                    top.linkTo(image.top, (customPainter.size.height * 0.05f).dp)
+                    top.linkTo(image.top, (customPainter.size.height * 0.02f).dp)
                     start.linkTo(image.start, (customPainter.size.width * 0.05f).dp)
                     end.linkTo(image.end)
                     //                    bottom.linkTo(image.bottom)
@@ -97,7 +102,8 @@ fun CardReaderScreen(
             //                 modifier = Modifier
             //                     .wrapContentSize().scale(scale))
 
-            TypewriterText(texts = listOf("Scanning..."), modifier = Modifier.wrapContentSize())
+            //            TypewriterText(texts = listOf(state), modifier = Modifier.wrapContentSize())
+            Text(text = state, textAlign = TextAlign.Center)
         }
 
         //        Text(text = "Scanning",

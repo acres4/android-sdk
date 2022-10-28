@@ -26,13 +26,7 @@ fun TypewriterText(
 ) {
     var textIndex by remember { mutableStateOf(0) }
     var textToDisplay by remember { mutableStateOf("") }
-    val textCharsList: List<List<String>> = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            texts.map { it.splitToCodePoints() }
-        } else {
-            texts.map { text -> text.map { it.toString() } }
-        }
-    }
+    val textCharsList: List<List<String>> = remember { texts.map { it.splitToCodePoints() } }
 
     LaunchedEffect(
         key1 = texts,

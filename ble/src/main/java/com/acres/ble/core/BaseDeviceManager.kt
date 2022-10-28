@@ -4,7 +4,9 @@
  */
 package com.acres.ble.core
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.util.Log
@@ -14,12 +16,19 @@ import com.acres.ble.core.model.ScannerState
 import com.acres.ble.util.isBluetoothConnectPermissionGranted
 import com.acres.ble.util.isLocationDisabled
 import com.acres.ble.util.isPermissionNotGranted
+import com.acres.ble.util.toHexString
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import no.nordicsemi.android.ble.BleManager
+import no.nordicsemi.android.ble.PhyRequest
+import no.nordicsemi.android.ble.data.Data
+import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanCallback
 import no.nordicsemi.android.support.v18.scanner.ScanResult
@@ -37,6 +46,7 @@ constructor(
     private var scanCallback: ScanCallback? = null
 
     override fun getGattCallback(): BleManagerGattCallback = AcresBleManagerGattCallback()
+    val deviceManagerScope = CoroutineScope(Job() + ioDispatcher)
 
     override fun log(priority: Int, message: String) {
         logger.logDebug("priority:$priority,message:$message} ")
@@ -44,6 +54,7 @@ constructor(
 
     private inner class AcresBleManagerGattCallback : BleManagerGattCallback() {
         override fun isRequiredServiceSupported(gatt: BluetoothGatt): Boolean {
+
             setCommonCharacteristics(gatt)
             return true
         }
@@ -56,6 +67,34 @@ constructor(
     abstract fun setCommonCharacteristics(
         gatt: BluetoothGatt,
     )
+
+    suspend fun connectDevice(device: BluetoothDevice) {
+        withContext(ioDispatcher) {
+            try {
+                connect(device)
+                    // Automatic retries are supported, in case of 133 error.
+                    .retry(3 /* times, with */, 100 /* ms interval */)
+                    // A connection timeout can be set. This is additional to the Android's connection
+                    // timeout which is 30 seconds.
+                    .timeout(15_000 /* ms */)
+                    // The auto connect feature from connectGatt is available as well
+                    .useAutoConnect(false)
+                    // This API can be set on any Android version, but will only be used on devices running
+                    // Android 8+ with
+                    // support to the selected PHY.
+                    .usePreferredPhy(
+                        PhyRequest.PHY_LE_1M_MASK or
+                            PhyRequest.PHY_LE_2M_MASK or
+                            PhyRequest.PHY_LE_CODED_MASK
+                    )
+                    .suspend()
+            } catch (e: Exception) {
+                logger.logError(
+                    "failed to connect to Bluetooth device with address:${device.address}", error = e
+                )
+            }
+        }
+    }
 
     abstract fun clearCharacteristics()
 
@@ -117,7 +156,10 @@ constructor(
                     is ScannerState.Error -> {
                         handleError(it.error)
                     }
-                    is ScannerState.Scanning -> handleScannedDevices(it.result)
+                    is ScannerState.Scanning -> {
+
+                        handleScannedDevices(it.result)
+                    }
                     is ScannerState.Started -> {}
                     is ScannerState.Stopped -> {}
                 }
@@ -125,7 +167,7 @@ constructor(
 
     abstract fun handleScannedDevices(result: List<ScanResult>)
 
-    private fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
+    fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
 
     private fun handleError(error: BleScannerError) {
         logger.logError("scan failed with ${error.name}")
@@ -146,5 +188,51 @@ constructor(
         //            SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED -> TODO()
         //            SCAN_FAILED_UNKNOWN_ERROR -> TODO()
         //        }
+    }
+
+    suspend fun <T> readRequest(
+        bluetoothGattCharacteristic: BluetoothGattCharacteristic?,
+        mapToResponse: (Data) -> T?,
+    ): T? {
+        return withContext(ioDispatcher) {
+            try {
+                mapToResponse(readCharacteristic(bluetoothGattCharacteristic).suspend())
+            } catch (e: Exception) {
+                Log.e(
+                    "read request failed",
+                    "failed to read data from characteristic:${bluetoothGattCharacteristic?.uuid}"
+                )
+
+                null
+            }
+        }
+    }
+
+    suspend fun writeRequest(
+        bluetoothGattCharacteristic: BluetoothGattCharacteristic?,
+        data: ByteArray,
+    ) {
+        withContext(ioDispatcher) {
+            try {
+                writeCharacteristic(
+                    bluetoothGattCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "write request failed",
+                    "failed to write data:${data.toHexString()}, to characteristic:${bluetoothGattCharacteristic?.uuid}"
+                )
+            }
+        }
+    }
+
+    suspend fun disconnectDevice() {
+        withContext(ioDispatcher) {
+            try {
+                disconnect().suspend()
+            } catch (e: Exception) {
+                Log.e("disconnect", "disconnect failed with exception:$e")
+            }
+        }
     }
 }
