@@ -29,12 +29,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.acres.blesdk.R
 import com.acres.blesdk.ui.components.SlotMachinePainter
 import com.acres.blesdk.ui.components.TypewriterText
 
 @Composable
-fun CardReaderScreen() {
+fun CardReaderScreen(
+    viewModel: CardReaderViewModel = hiltViewModel(),
+) {
 
     val slotMachineImage = ImageBitmap.imageResource(id = R.drawable.slot_machine)
     val customPainter = remember { SlotMachinePainter(slotMachineImage) }

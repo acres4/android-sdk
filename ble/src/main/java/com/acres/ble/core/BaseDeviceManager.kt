@@ -7,7 +7,7 @@ package com.acres.ble.core
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.core.model.BleScannerError.*
 import com.acres.ble.core.model.ScannerState
@@ -17,6 +17,7 @@ import com.acres.ble.util.isPermissionNotGranted
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
@@ -32,8 +33,6 @@ constructor(
     private val scanner: BluetoothLeScannerCompat = BluetoothLeScannerCompat.getScanner(),
     private val logger: BleLogger,
 ) : BleManager(context) {
-
-    val bluetoothPermissionLauncher = ActivityResultContracts.RequestMultiplePermissions()
 
     private var scanCallback: ScanCallback? = null
 
@@ -78,19 +77,19 @@ constructor(
                 }
 
             if (context.isLocationDisabled()) {
-                send(ScannerState.Error(SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED))
+                close(Throwable(message = SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED.name))
             }
             if (context.isPermissionNotGranted()) {
-                send(ScannerState.Error(SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED))
+                close(Throwable(message = SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED.name))
             }
             if (!context.isBluetoothConnectPermissionGranted()) {
-                send(ScannerState.Error(SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED))
+                close(Throwable(message = SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED.name))
             }
 
             val bleAdapter =
                 (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
             if (bleAdapter?.isEnabled == false) {
-                send(ScannerState.Error(SCAN_FAILED_BLUETOOTH_NOT_ENABLED))
+                close(Throwable(message = SCAN_FAILED_BLUETOOTH_NOT_ENABLED.name))
             }
 
             val scanSettings =
@@ -108,14 +107,23 @@ constructor(
             awaitClose()
         }
             .flowOn(ioDispatcher)
+            .catch {
+                // TODO emit the error that is caught
+                logger.logError("scan flow failed with message:${it.message}")
+            }
             .collect {
+                Log.d("scannerState", "state$it")
                 when (it) {
-                    is ScannerState.Error -> {}
-                    is ScannerState.Scanning -> {}
+                    is ScannerState.Error -> {
+                        handleError(it.error)
+                    }
+                    is ScannerState.Scanning -> handleScannedDevices(it.result)
                     is ScannerState.Started -> {}
                     is ScannerState.Stopped -> {}
                 }
             }
+
+    abstract fun handleScannedDevices(result: List<ScanResult>)
 
     private fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
 
@@ -124,19 +132,19 @@ constructor(
         if (error != NO_ERROR) {
             stopScan()
         }
-        when (error) {
-            NO_ERROR -> TODO()
-            SCAN_FAILED_ALREADY_STARTED -> TODO()
-            SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> TODO()
-            SCAN_FAILED_INTERNAL_ERROR -> TODO()
-            SCAN_FAILED_FEATURE_UNSUPPORTED -> TODO()
-            SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES -> TODO()
-            SCAN_FAILED_SCANNING_TOO_FREQUENTLY -> TODO()
-            SCAN_FAILED_BLUETOOTH_NOT_ENABLED -> TODO()
-            SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED -> TODO()
-            SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED -> TODO()
-            SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED -> TODO()
-            SCAN_FAILED_UNKNOWN_ERROR -> TODO()
-        }
+        //        when (error) {
+        //            NO_ERROR -> TODO()
+        //            SCAN_FAILED_ALREADY_STARTED -> TODO()
+        //            SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> TODO()
+        //            SCAN_FAILED_INTERNAL_ERROR -> TODO()
+        //            SCAN_FAILED_FEATURE_UNSUPPORTED -> TODO()
+        //            SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES -> TODO()
+        //            SCAN_FAILED_SCANNING_TOO_FREQUENTLY -> TODO()
+        //            SCAN_FAILED_BLUETOOTH_NOT_ENABLED -> TODO()
+        //            SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED -> TODO()
+        //            SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED -> TODO()
+        //            SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED -> TODO()
+        //            SCAN_FAILED_UNKNOWN_ERROR -> TODO()
+        //        }
     }
 }

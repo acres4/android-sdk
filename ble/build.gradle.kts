@@ -35,7 +35,7 @@ android {
 dependencies {
 
     implementation(Libs.NordicBLE.dfu)
-    implementation(Libs.NordicBLE.bleKtx)
+    api(Libs.NordicBLE.bleKtx)
     implementation(Libs.NordicBLE.bleScanner)
     implementation("androidx.core:core:1.9.0")
     implementation("androidx.activity:activity-ktx:1.6.0")

@@ -35,3 +35,11 @@ class AppNavigationActions(private val navController: NavHostController) {
 
     fun popBackStack() = navController.popBackStack()
 }
+
+/**
+ * ScanResult{ device=04:CD:15:57:2E:3B, scanRecord=ScanRecord [advertiseFlags=6,
+ * serviceUuids=[c83fe52e-0ab5-49d9-9817-98982b4c48a3], manufacturerSpecificData=null,
+ * serviceData=null, txPowerLevel=-26, deviceName=BID-intf], rssi=-94,
+ * timestampNanos=351090424769011, eventType=17, primaryPhy=1, secondaryPhy=0, advertisingSid=255,
+ * txPower=127, periodicAdvertisingInterval=0}
+ */

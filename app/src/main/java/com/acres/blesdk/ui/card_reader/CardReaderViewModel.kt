@@ -5,10 +5,22 @@
 package com.acres.blesdk.ui.card_reader
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.acres.ble.card_reader.CardReaderDeviceManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
 class CardReaderViewModel @Inject constructor(cardReaderDeviceManager: CardReaderDeviceManager) :
-    ViewModel()
+    ViewModel() {
+
+    init {
+        Timber.d("starting CardReaderViewModel")
+        viewModelScope.launch {
+            Timber.d("starting scanner")
+            cardReaderDeviceManager.startScanFlow()
+        }
+    }
+}
