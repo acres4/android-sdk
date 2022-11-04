@@ -6,6 +6,7 @@ package com.acres.blesdk.di
 
 import android.content.Context
 import com.acres.ble.card_reader.CardReaderDeviceManager
+import com.acres.ble.slot_and_table.SlotAndTableDeviceManager
 import com.acres.blesdk.ble.logger.BleLogger
 import dagger.Module
 import dagger.Provides
@@ -24,4 +25,10 @@ object BleModule {
         @ApplicationContext context: Context,
         bleLogger: BleLogger,
     ): CardReaderDeviceManager = CardReaderDeviceManager(context, bleLogger)
+
+    @Provides
+    fun provideSlotAndTableManager(
+        @ApplicationContext context: Context,
+        bleLogger: BleLogger,
+    ): SlotAndTableDeviceManager = SlotAndTableDeviceManager(context, bleLogger)
 }

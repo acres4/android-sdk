@@ -6,6 +6,8 @@ package com.acres.blesdk
 
 import androidx.navigation.NavHostController
 import com.acres.blesdk.AppScreens.CARD_READER_SCREEN
+import com.acres.blesdk.AppScreens.CASH_OUT_SCREEN
+import com.acres.blesdk.AppScreens.FUND_TABLE_SCREEN
 import com.acres.blesdk.AppScreens.MAIN_NAVIGATION_SCREEN
 import com.acres.blesdk.AppScreens.SLOT_AND_TABLE_SCREEN
 
@@ -13,6 +15,8 @@ private object AppScreens {
     const val MAIN_NAVIGATION_SCREEN = "main_navigation_screen"
     const val CARD_READER_SCREEN = "card_reader_screen"
     const val SLOT_AND_TABLE_SCREEN = "slot_and_table_screen"
+    const val FUND_TABLE_SCREEN = "fund_table_screen"
+    const val CASH_OUT_SCREEN = "cash_out_screen"
 }
 
 object AppDestinationArgs
@@ -21,6 +25,8 @@ object AppDestinations {
     const val MAIN_NAVIGATION_ROUTE = MAIN_NAVIGATION_SCREEN
     const val CARD_READER_ROUTE = CARD_READER_SCREEN
     const val SLOT_AND_TABLE_ROUTE = SLOT_AND_TABLE_SCREEN
+    const val FUND_TABLE_ROUTE = FUND_TABLE_SCREEN
+    const val CASH_OUT_ROUTE = CASH_OUT_SCREEN
 }
 
 class AppNavigationActions(private val navController: NavHostController) {
@@ -31,6 +37,14 @@ class AppNavigationActions(private val navController: NavHostController) {
 
     fun navigateToSlotAndTableScreen() {
         navController.navigate(AppDestinations.SLOT_AND_TABLE_ROUTE)
+    }
+
+    fun navigateToFundTableScreen() {
+        navController.navigate(AppDestinations.FUND_TABLE_ROUTE)
+    }
+
+    fun navigateToCashOutScreen() {
+        navController.navigate(AppDestinations.CASH_OUT_ROUTE)
     }
 
     fun popBackStack() = navController.popBackStack()

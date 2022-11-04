@@ -15,6 +15,8 @@ import com.acres.blesdk.AppDestinations
 import com.acres.blesdk.AppNavigationActions
 import com.acres.blesdk.ui.card_reader.CardReaderScreen
 import com.acres.blesdk.ui.main_navigation.MainNavigationScreen
+import com.acres.blesdk.ui.slot_and_table.CashOutScreen
+import com.acres.blesdk.ui.slot_and_table.FundTableScreen
 import com.acres.blesdk.ui.slot_and_table.SlotAndTableScreen
 
 @Composable
@@ -41,6 +43,19 @@ fun AppNavGraph(
 
         composable(
             AppDestinations.SLOT_AND_TABLE_ROUTE,
-        ) { SlotAndTableScreen() }
+        ) {
+            SlotAndTableScreen(
+                onFundClicked = { navActions.navigateToFundTableScreen() },
+                onCashOutClicked = { navActions.navigateToCashOutScreen() }
+            )
+        }
+
+        composable(
+            AppDestinations.FUND_TABLE_ROUTE,
+        ) { FundTableScreen() }
+
+        composable(
+            AppDestinations.CASH_OUT_ROUTE,
+        ) { CashOutScreen() }
     }
 }
