@@ -4,37 +4,31 @@
  */
 package com.acres.blesdk.ui.card_reader
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.material.TextField
+import androidx.compose.material.TextFieldDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.acres.blesdk.R
-import com.acres.blesdk.ui.components.SlotMachinePainter
+import com.acres.ble.card_reader.CardReaderDeviceManager
+import com.acres.ble.card_reader.Track
+import com.acres.blesdk.ui.components.DropdownMenu
+import com.acres.blesdk.ui.theme.Purple500
 
 @OptIn(ExperimentalLifecycleComposeApi::class)
 @Composable
@@ -42,75 +36,55 @@ fun CardReaderScreen(
     viewModel: CardReaderViewModel = hiltViewModel(),
 ) {
 
-    val slotMachineImage = ImageBitmap.imageResource(id = R.drawable.slot_machine)
-    val customPainter = remember { SlotMachinePainter(slotMachineImage) }
-
-    val infiniteTransition = rememberInfiniteTransition()
-
     val state by viewModel.cardReaderState.collectAsStateWithLifecycle()
 
-    val scale by
-    infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.2f,
-        animationSpec =
-        infiniteRepeatable(animation = tween(1000), repeatMode = RepeatMode.Reverse)
-    )
-    ConstraintLayout(
+    var userId by rememberSaveable { mutableStateOf("") }
+    var selectedTrack by rememberSaveable { mutableStateOf(Track.TRACK_1) }
+
+    val maximumAllowableLength =
+        if (selectedTrack == Track.TRACK_1) CardReaderDeviceManager.TRACK_1_MAX_BYTE_LENGTH
+        else CardReaderDeviceManager.TRACK_2_MAX_BYTE_LENGTH
+
+    Column(
         modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        //        CircularProgressIndicator()
-        //        Spacer(modifier = Modifier.height(15.dp))
-        //        Text(
-        //            text = "Inserting card...\nHold your phone close to the card reader.",
-        //            textAlign = TextAlign.Center
-        //        )
-        val (image, loadingText) = createRefs()
-
-        Image(
-            painter = customPainter,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier =
-            Modifier.fillMaxSize(0.8f).constrainAs(image) {
-                top.linkTo(parent.top)
-                bottom.linkTo(parent.bottom)
-                start.linkTo(parent.start)
-                end.linkTo(parent.end)
-            },
-            alignment = Alignment.Center
+        Text(text = state)
+        Spacer(modifier = Modifier.height(15.dp))
+        DropdownMenu(
+            title = "Select track",
+            options = Track.values(),
+            onValueChange = { track ->
+                userId = ""
+                selectedTrack = track
+            }
         )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-            modifier =
-            Modifier
-                //                .offset(x = (customPainter.size.width * 0.18f).dp,
-                //                    y = (customPainter.size.height * 0.12f).dp)
-                .fillMaxHeight(0.3f)
-                .fillMaxWidth(0.4f)
-                .constrainAs(loadingText) {
-                    top.linkTo(image.top, (customPainter.size.height * 0.02f).dp)
-                    start.linkTo(image.start, (customPainter.size.width * 0.05f).dp)
-                    end.linkTo(image.end)
-                    //                    bottom.linkTo(image.bottom)
+        Spacer(modifier = Modifier.height(15.dp))
+        Box {
+            TextField(
+                value = userId,
+                onValueChange = { text ->
+                    if (text.length <= maximumAllowableLength) {
+                        userId = text
+                    }
+                },
+                colors = TextFieldDefaults.textFieldColors(unfocusedIndicatorColor = Purple500),
+                singleLine = true,
+                trailingIcon = {
+                    Text(
+                        text = "${userId.toByteArray().size}/$maximumAllowableLength",
+                        modifier = Modifier.align(Alignment.CenterEnd)
+                    )
                 }
-        ) {
-            //             Text(text = "Scanning",
-            //
-            //                 modifier = Modifier
-            //                     .wrapContentSize().scale(scale))
-
-            //            TypewriterText(texts = listOf(state), modifier = Modifier.wrapContentSize())
-            Text(text = state, textAlign = TextAlign.Center)
+            )
         }
-
-        //        Text(text = "Scanning",
-        //
-        //            modifier = Modifier
-        //                .offset(x = (customPainter.size.width * 0.18f).dp,
-        //                    y = (customPainter.size.height * 0.12f).dp)
-        //                .fillMaxSize(0.8f))
+        Spacer(modifier = Modifier.height(15.dp))
+        if (state == "Device is available to use")
+            Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect") }
+        else
+            Button(onClick = { viewModel.insertPlayerCard(selectedTrack, userId) }) {
+                Text(text = "Insert player card")
+            }
     }
 }

@@ -21,7 +21,13 @@ import no.nordicsemi.android.ble.ktx.state.ConnectionState
 import no.nordicsemi.android.ble.ktx.stateAsFlow
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
+import java.io.IOException
 import java.util.UUID
+
+enum class Track {
+    TRACK_1,
+    TRACK_2
+}
 
 class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     BaseDeviceManager(
@@ -40,37 +46,65 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     private val _cardReaderStateFlow = MutableStateFlow<CardReaderState>(CardReaderState.Scanning)
     val cardReaderStateFlow: StateFlow<CardReaderState> = _cardReaderStateFlow
 
-    init {
-        deviceManagerScope.launch {
-            val scannerJob = launch { startScanFlow() }
-            val connectionStateJob = launch {
-                stateAsFlow().collect {
-                    logger.logDebug("device manager connection state:$it")
-                    if (it == ConnectionState.Ready) {
-                        bluetoothDevice?.let { device ->
-                            _cardReaderStateFlow.value = CardReaderState.DeviceConnected(device)
-                            logger.logDebug("device manager checking device status")
-                            if (isDeviceBusy()) {
-                                _cardReaderStateFlow.value = CardReaderState.DeviceBusy
-                            } else {
-                                _cardReaderStateFlow.value = CardReaderState.DeviceAvailable
+    fun insertPlayerCard(selectedTrack: Track, userId: String) {
+        try {
+            deviceManagerScope.launch {
+                val scannerJob = launch { startScanFlow() }
+                val connectionStateJob = launch {
+                    stateAsFlow().collect {
+                        logger.logDebug("device manager connection state:$it")
+                        if (it == ConnectionState.Ready) {
+                            bluetoothDevice?.let { device ->
+                                _cardReaderStateFlow.value = CardReaderState.DeviceConnected(device)
+                                logger.logDebug("device manager checking device status")
+                                if (isDeviceBusy()) {
+                                    _cardReaderStateFlow.value = CardReaderState.DeviceBusy
+                                } else {
+                                    _cardReaderStateFlow.value = CardReaderState.DeviceAvailable
+                                    handleWriteToPlayerCardCharacteristics(selectedTrack, userId)
+                                }
                             }
-                        }
 
-                        logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
-                        //                } else if (it is ConnectionState.Disconnected) {
-                        //                    logger.logDebug("scanner started:$it")
-                        //                    startScanFlow()
-                        //                }
+                            logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
+                            //                } else if (it is ConnectionState.Disconnected) {
+                            //                    logger.logDebug("scanner started:$it")
+                            //                    startScanFlow()
+                            //                }
+                        } else if (it == ConnectionState.Disconnecting) {
+                            _cardReaderStateFlow.value = CardReaderState.DeviceDisconnected
+                        }
                     }
                 }
+                listOf(scannerJob, connectionStateJob).joinAll()
             }
-            listOf(scannerJob, connectionStateJob).joinAll()
+        } catch (e: Exception) {
+            _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
         }
     }
 
-    suspend fun writePlayerCardTrack1(userId: String) {
+    private suspend fun handleWriteToPlayerCardCharacteristics(selectedTrack: Track, userId: String) {
+        when (selectedTrack) {
+            Track.TRACK_1 ->
+                if (userId.toByteArray().size <= TRACK_1_MAX_BYTE_LENGTH) writePlayerCardTrack1(userId)
+                else
+                    throw IOException(
+                        "Cannot write more than $TRACK_1_MAX_BYTE_LENGTH bytes to the ${playerCardTrack1Characteristics?.uuid} characteristic"
+                    )
+            Track.TRACK_2 ->
+                if (userId.toByteArray().size <= TRACK_2_MAX_BYTE_LENGTH) writePlayerCardTrack2(userId)
+                else
+                    throw IOException(
+                        "Cannot write more than $TRACK_2_MAX_BYTE_LENGTH bytes to the ${playerCardTrack2Characteristics?.uuid} characteristic"
+                    )
+        }
+    }
+
+    private suspend fun writePlayerCardTrack1(userId: String) {
         writeRequest(playerCardTrack1Characteristics, userId.toByteArray())
+    }
+
+    private suspend fun writePlayerCardTrack2(userId: String) {
+        writeRequest(playerCardTrack2Characteristics, userId.toByteArray())
     }
 
     private suspend fun isDeviceBusy(): Boolean =
@@ -118,5 +152,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
 
     companion object {
         const val MINIMUM_RSSI = -65
+        const val TRACK_1_MAX_BYTE_LENGTH = 79
+        const val TRACK_2_MAX_BYTE_LENGTH = 40
     }
 }

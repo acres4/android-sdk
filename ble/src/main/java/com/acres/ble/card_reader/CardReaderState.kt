@@ -14,4 +14,5 @@ sealed class CardReaderState {
     data class DeviceError(val exception: Exception) : CardReaderState()
     object DeviceBusy : CardReaderState()
     object DeviceAvailable : CardReaderState()
+    object DeviceDisconnected : CardReaderState()
 }

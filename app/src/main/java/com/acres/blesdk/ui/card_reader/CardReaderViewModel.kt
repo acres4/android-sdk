@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.acres.ble.card_reader.CardReaderDeviceManager
 import com.acres.ble.card_reader.CardReaderState
+import com.acres.ble.card_reader.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,14 +17,14 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
-class CardReaderViewModel @Inject constructor(cardReaderDeviceManager: CardReaderDeviceManager) :
-    ViewModel() {
+class CardReaderViewModel
+@Inject
+constructor(private val cardReaderDeviceManager: CardReaderDeviceManager) : ViewModel() {
 
     private val _cardReaderState = MutableStateFlow("Scanning")
     val cardReaderState: StateFlow<String> = _cardReaderState
 
     init {
-
         viewModelScope.launch {
             cardReaderDeviceManager.cardReaderStateFlow.collect {
                 Timber.d("cardReaderState :$it")
@@ -37,8 +38,17 @@ class CardReaderViewModel @Inject constructor(cardReaderDeviceManager: CardReade
                     is CardReaderState.DiscoveredDevice ->
                         _cardReaderState.value = "Device discovered ${it.result.address} with rssi:${it.rssi}"
                     CardReaderState.Scanning -> _cardReaderState.value = "Scanning"
+                    CardReaderState.DeviceDisconnected -> _cardReaderState.value = "Disconnected"
                 }
             }
         }
+    }
+
+    fun insertPlayerCard(selectedTrack: Track, userId: String) {
+        cardReaderDeviceManager.insertPlayerCard(selectedTrack, userId)
+    }
+
+    fun disconnect() {
+        viewModelScope.launch { cardReaderDeviceManager.disconnectDevice() }
     }
 }
