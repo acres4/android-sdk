@@ -5,7 +5,6 @@
 package com.acres.blesdk.ui.card_reader
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -61,24 +60,21 @@ fun CardReaderScreen(
             }
         )
         Spacer(modifier = Modifier.height(15.dp))
-        Box {
-            TextField(
-                value = userId,
-                onValueChange = { text ->
-                    if (text.length <= maximumAllowableLength) {
-                        userId = text
-                    }
-                },
-                colors = TextFieldDefaults.textFieldColors(unfocusedIndicatorColor = Purple500),
-                singleLine = true,
-                trailingIcon = {
-                    Text(
-                        text = "${userId.toByteArray().size}/$maximumAllowableLength",
-                        modifier = Modifier.align(Alignment.CenterEnd)
-                    )
+        TextField(
+            value = userId,
+            onValueChange = { text ->
+                if (text.length <= maximumAllowableLength) {
+                    userId = text
                 }
-            )
-        }
+            },
+            colors = TextFieldDefaults.textFieldColors(unfocusedIndicatorColor = Purple500),
+            singleLine = true,
+            trailingIcon = {
+                Text(
+                    text = "${userId.toByteArray().size}/$maximumAllowableLength",
+                )
+            }
+        )
         Spacer(modifier = Modifier.height(15.dp))
         if (state == "Device is available to use")
             Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect") }

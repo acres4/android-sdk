@@ -9,9 +9,9 @@ import android.bluetooth.BluetoothDevice
 sealed class SlotAndTableReaderState {
 
     object Scanning : SlotAndTableReaderState()
+    data class Success(val amount: String) : SlotAndTableReaderState()
     data class DiscoveredDevice(val result: BluetoothDevice, val rssi: Int) :
         SlotAndTableReaderState()
-    data class DeviceConnected(val device: BluetoothDevice) : SlotAndTableReaderState()
     data class DeviceError(val exception: Exception) : SlotAndTableReaderState()
-    object DeviceAvailable : SlotAndTableReaderState()
+    data class DeviceAvailable(val device: BluetoothDevice) : SlotAndTableReaderState()
 }

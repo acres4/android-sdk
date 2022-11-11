@@ -13,6 +13,6 @@ sealed class CardReaderState {
     data class DeviceConnected(val device: BluetoothDevice) : CardReaderState()
     data class DeviceError(val exception: Exception) : CardReaderState()
     object DeviceBusy : CardReaderState()
-    object DeviceAvailable : CardReaderState()
+    data class DeviceAvailable(val device: BluetoothDevice) : CardReaderState()
     object DeviceDisconnected : CardReaderState()
 }

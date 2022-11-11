@@ -29,7 +29,8 @@ constructor(private val cardReaderDeviceManager: CardReaderDeviceManager) : View
             cardReaderDeviceManager.cardReaderStateFlow.collect {
                 Timber.d("cardReaderState :$it")
                 when (it) {
-                    CardReaderState.DeviceAvailable -> _cardReaderState.value = "Device is available to use"
+                    is CardReaderState.DeviceAvailable ->
+                        _cardReaderState.value = "Device ${it.device.name} is available to use"
                     CardReaderState.DeviceBusy -> _cardReaderState.value = "Device is busy"
                     is CardReaderState.DeviceConnected ->
                         _cardReaderState.value = "Device ${it.device.address} connected"

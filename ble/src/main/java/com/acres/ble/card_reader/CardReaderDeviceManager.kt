@@ -60,7 +60,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                                 if (isDeviceBusy()) {
                                     _cardReaderStateFlow.value = CardReaderState.DeviceBusy
                                 } else {
-                                    _cardReaderStateFlow.value = CardReaderState.DeviceAvailable
+                                    _cardReaderStateFlow.value = CardReaderState.DeviceAvailable(device)
                                     handleWriteToPlayerCardCharacteristics(selectedTrack, userId)
                                 }
                             }

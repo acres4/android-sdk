@@ -217,6 +217,7 @@ constructor(
                 writeCharacteristic(
                     bluetoothGattCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
+                    .enqueue()
             } catch (e: Exception) {
                 Log.e(
                     "write request failed",

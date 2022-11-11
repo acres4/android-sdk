@@ -18,8 +18,10 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import no.nordicsemi.android.ble.ktx.state.ConnectionState
 import no.nordicsemi.android.ble.ktx.stateAsFlow
+import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
+import java.util.Base64
 import java.util.UUID
 
 class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger) :
@@ -46,9 +48,7 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
                     logger.logDebug("device manager connection state:$it")
                     if (it == ConnectionState.Ready) {
                         bluetoothDevice?.let { device ->
-                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceConnected(device)
-                            logger.logDebug("device manager checking device status")
-                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceAvailable
+                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceAvailable(device)
                         }
 
                         logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
@@ -64,24 +64,30 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
     }
 
     suspend fun fundTable(amount: Int) {
-        logger.logDebug("Fund table with: $amount")
-        writeRequest(amountCharacteristic, byteArrayOf(amount.toByte()))
+        writeRequest(amountCharacteristic, Base64.getEncoder().encode(amount.toString().toByteArray()))
     }
 
     suspend fun cashOut() {
-        logger.logDebug("Cash out $$$")
         fundTable(0)
     }
 
     suspend fun cancelCashOut() {
-        logger.logDebug("Cancel cash out")
-        writeRequest(cancelCharacteristic, byteArrayOf(1.toByte()))
+        writeRequest(cancelCharacteristic, Base64.getEncoder().encode(0.toString().toByteArray()))
     }
 
     override fun setCommonCharacteristics(gatt: BluetoothGatt) {
 
         cancelCharacteristic = gatt.getCharacteristic(SlotAndTableCharacteristics.CANCEL_UUID)
         amountCharacteristic = gatt.getCharacteristic(SlotAndTableCharacteristics.AMOUNT_UUID)
+
+        deviceManagerScope.launch {
+            setNotificationCallback(amountCharacteristic).with { device, data ->
+                data.value.toString().let {
+                    _slotAndTableStateFlow.value = SlotAndTableReaderState.Success(it)
+                }
+            }
+            enableNotifications(amountCharacteristic).suspend()
+        }
     }
 
     override fun clearCharacteristics() {
@@ -90,6 +96,8 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
     }
 
     override fun handleScannedDevices(result: List<ScanResult>) {
+        logger.logDebug(result.size.toString())
+
         val device =
             result.sortedByDescending { it.rssi }.filter { it.rssi >= MINIMUM_RSSI }.firstOrNull { scan
                 ->
@@ -111,3 +119,10 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         const val MINIMUM_RSSI = -65
     }
 }
+
+/**
+ * ScanResult{device=51:20:08:74:5B:74, scanRecord=ScanRecord [advertiseFlags=26,
+ * serviceUuids=[c83fe52e-0ab5-49d9-9817-98982b4c48a3], manufacturerSpecificData=null,
+ * serviceData=null, txPowerLevel=12, deviceName=Dealer Application], rssi=-26,
+ * timestampNanos=77752478528782, eventType=17, primaryPhy=1, secondaryPhy=0}
+ */
