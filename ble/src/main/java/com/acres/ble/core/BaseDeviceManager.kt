@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.core.model.BleScannerError.*
@@ -115,11 +116,18 @@ constructor(
                     }
                 }
 
-            if (context.isLocationDisabled()) {
-                close(Throwable(message = SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED.name))
-            }
-            if (context.isPermissionNotGranted()) {
-                close(Throwable(message = SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED.name))
+            val targetSdkVersion = context.applicationInfo.targetSdkVersion
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
+                targetSdkVersion < Build.VERSION_CODES.S
+            ) {
+                // Check if Location services are on because they are required to make scanning work for
+                // SDK < 31
+                if (context.isLocationDisabled()) {
+                    close(Throwable(message = SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED.name))
+                }
+                if (context.isPermissionNotGranted()) {
+                    close(Throwable(message = SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED.name))
+                }
             }
             if (!context.isBluetoothConnectPermissionGranted()) {
                 close(Throwable(message = SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED.name))
@@ -227,7 +235,7 @@ constructor(
         }
     }
 
-    suspend fun disconnectDevice() {
+    open suspend fun disconnectDevice() {
         withContext(ioDispatcher) {
             try {
                 disconnect().suspend()

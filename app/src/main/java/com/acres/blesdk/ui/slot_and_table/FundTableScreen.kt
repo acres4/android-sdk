@@ -63,6 +63,12 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
             is SlotAndTableReaderState.DeviceError -> {
                 Text(text = "Something went wrong. Please try again")
             }
+            is SlotAndTableReaderState.DeviceDisconnected -> {
+                Text(
+                    text =
+                    "Device disconnected: ${(state as SlotAndTableReaderState.DeviceDisconnected).reason}"
+                )
+            }
             is SlotAndTableReaderState.DiscoveredDevice -> {
                 CircularProgressIndicator()
                 Text(text = "Device is discovered!")

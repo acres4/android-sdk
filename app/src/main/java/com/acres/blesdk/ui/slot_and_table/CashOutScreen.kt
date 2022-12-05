@@ -42,6 +42,12 @@ fun CashOutScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                 CircularProgressIndicator()
                 Text(text = "Device is discovered!")
             }
+            is SlotAndTableReaderState.DeviceDisconnected -> {
+                Text(
+                    text =
+                    "Device disconnected: ${(state as SlotAndTableReaderState.DeviceDisconnected).reason}"
+                )
+            }
             SlotAndTableReaderState.Scanning -> {
                 CircularProgressIndicator()
                 Text(text = "Scanning...")

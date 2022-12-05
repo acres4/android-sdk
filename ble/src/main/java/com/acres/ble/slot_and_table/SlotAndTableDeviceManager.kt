@@ -11,14 +11,13 @@ import android.os.ParcelUuid
 import com.acres.ble.core.BaseDeviceManager
 import com.acres.ble.core.BleLogger
 import com.acres.ble.util.getCharacteristic
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.asStateFlow
+import no.nordicsemi.android.ble.data.Data
 import no.nordicsemi.android.ble.ktx.state.ConnectionState
 import no.nordicsemi.android.ble.ktx.stateAsFlow
-import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
 import java.util.Base64
@@ -33,32 +32,48 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         logger
     ) {
 
+    private var sasSerialCharacteristics: BluetoothGattCharacteristic? = null
     private var cancelCharacteristic: BluetoothGattCharacteristic? = null
     private var amountCharacteristic: BluetoothGattCharacteristic? = null
 
     private val _slotAndTableStateFlow =
         MutableStateFlow<SlotAndTableReaderState>(SlotAndTableReaderState.Scanning)
-    val slotAndTableStateFlow: StateFlow<SlotAndTableReaderState> = _slotAndTableStateFlow
+    val slotAndTableStateFlow: StateFlow<SlotAndTableReaderState> =
+        _slotAndTableStateFlow.asStateFlow()
 
-    init {
+    private lateinit var scannerJob: Job
+    private lateinit var connectionStateJob: Job
+
+    suspend fun findDevice() {
         deviceManagerScope.launch {
-            val scannerJob = launch { startScanFlow() }
-            val connectionStateJob = launch {
-                stateAsFlow().collect {
-                    logger.logDebug("device manager connection state:$it")
-                    if (it == ConnectionState.Ready) {
-                        bluetoothDevice?.let { device ->
-                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceAvailable(device)
-                        }
+            scannerJob = launch { startScanFlow() }
+            connectionStateJob =
+                launch {
+                    stateAsFlow().collect {
+                        logger.logDebug("device manager connection state:$it")
+                        if (it == ConnectionState.Ready) {
+                            bluetoothDevice?.let { device ->
+                                readSasSerial { data ->
+                                    var sas: String? = null
+                                    val byteArray = data.value
+                                    if (byteArray != null) {
+                                        sas = String(byteArray)
+                                    }
+                                    _slotAndTableStateFlow.value =
+                                        SlotAndTableReaderState.DeviceAvailable(device, sas)
+                                }
+                            }
 
-                        logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
-                        //                } else if (it is ConnectionState.Disconnected) {
-                        //                    logger.logDebug("scanner started:$it")
-                        //                    startScanFlow()
-                        //                }
+                            logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
+                            //                } else if (it is ConnectionState.Disconnected) {
+                            //                    logger.logDebug("scanner started:$it")
+                            //                    startScanFlow()
+                            //                }
+                        } else if (it is ConnectionState.Disconnected) {
+                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceDisconnected(it.reason)
+                        }
                     }
                 }
-            }
             listOf(scannerJob, connectionStateJob).joinAll()
         }
     }
@@ -79,6 +94,7 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
 
         cancelCharacteristic = gatt.getCharacteristic(SlotAndTableCharacteristics.CANCEL_UUID)
         amountCharacteristic = gatt.getCharacteristic(SlotAndTableCharacteristics.AMOUNT_UUID)
+        sasSerialCharacteristics = gatt.getCharacteristic(SlotAndTableCharacteristics.SERIAL_UUID)
 
         deviceManagerScope.launch {
             setNotificationCallback(amountCharacteristic).with { device, data ->
@@ -86,13 +102,14 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
                     _slotAndTableStateFlow.value = SlotAndTableReaderState.Success(it)
                 }
             }
-            enableNotifications(amountCharacteristic).suspend()
+            //            enableNotifications(amountCharacteristic).suspend()
         }
     }
 
     override fun clearCharacteristics() {
         cancelCharacteristic = null
         amountCharacteristic = null
+        sasSerialCharacteristics = null
     }
 
     override fun handleScannedDevices(result: List<ScanResult>) {
@@ -113,6 +130,23 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
             stopScan()
             deviceManagerScope.launch { connectDevice(it) }
         }
+    }
+
+    private suspend fun readSasSerial(callback: (Data) -> Unit) {
+        deviceManagerScope.launch {
+            readRequest(sasSerialCharacteristics) {
+                logger.logDebug("isDeviceBusy:${it.value}")
+                callback(it)
+            }
+        }
+    }
+
+    override suspend fun disconnectDevice() {
+        logger.logDebug("disconnect------------------------------------------- ")
+        scannerJob.cancel()
+        connectionStateJob.cancel()
+
+        super.disconnectDevice()
     }
 
     companion object {
