@@ -30,30 +30,29 @@ fun CashOutScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        when (state) {
+        when (val targetState = state) {
             is SlotAndTableReaderState.DeviceAvailable -> {
                 Button(onClick = { viewModel.cashOutTable() }) { Text(text = "Cash out") }
                 Button(onClick = { viewModel.cancelCashOut() }) { Text(text = "Cancel") }
+                Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
             is SlotAndTableReaderState.DeviceError -> {
                 Text(text = "Something went wrong. Please try again")
+                Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
             is SlotAndTableReaderState.DiscoveredDevice -> {
                 CircularProgressIndicator()
                 Text(text = "Device is discovered!")
             }
             is SlotAndTableReaderState.DeviceDisconnected -> {
-                Text(
-                    text =
-                    "Device disconnected: ${(state as SlotAndTableReaderState.DeviceDisconnected).reason}"
-                )
+                Text(text = "Device disconnected: ${targetState.reason}")
             }
             SlotAndTableReaderState.Scanning -> {
                 CircularProgressIndicator()
                 Text(text = "Scanning...")
             }
             is SlotAndTableReaderState.Success -> {
-                Text(text = "Cash out success")
+                Text(text = "Cash out success with amount of: ${targetState.amount}$")
                 Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
         }

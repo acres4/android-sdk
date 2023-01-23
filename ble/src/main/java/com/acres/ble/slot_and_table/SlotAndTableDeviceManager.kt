@@ -15,11 +15,12 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import no.nordicsemi.android.ble.data.Data
 import no.nordicsemi.android.ble.ktx.state.ConnectionState
 import no.nordicsemi.android.ble.ktx.stateAsFlow
+import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
+import java.lang.Exception
 import java.util.Base64
 import java.util.UUID
 
@@ -41,39 +42,25 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
     val slotAndTableStateFlow: StateFlow<SlotAndTableReaderState> =
         _slotAndTableStateFlow.asStateFlow()
 
-    private lateinit var scannerJob: Job
-    private lateinit var connectionStateJob: Job
-
-    suspend fun findDevice() {
+    init {
         deviceManagerScope.launch {
-            scannerJob = launch { startScanFlow() }
-            connectionStateJob =
-                launch {
-                    stateAsFlow().collect {
-                        logger.logDebug("device manager connection state:$it")
-                        if (it == ConnectionState.Ready) {
-                            bluetoothDevice?.let { device ->
-                                readSasSerial { data ->
-                                    var sas: String? = null
-                                    val byteArray = data.value
-                                    if (byteArray != null) {
-                                        sas = String(byteArray)
-                                    }
-                                    _slotAndTableStateFlow.value =
-                                        SlotAndTableReaderState.DeviceAvailable(device, sas)
-                                }
-                            }
-
-                            logger.logDebug("device with address:${bluetoothDevice?.address} is ready")
-                            //                } else if (it is ConnectionState.Disconnected) {
-                            //                    logger.logDebug("scanner started:$it")
-                            //                    startScanFlow()
-                            //                }
-                        } else if (it is ConnectionState.Disconnected) {
-                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceDisconnected(it.reason)
+            val scannerJob = launch { startScanFlow() }
+            val connectionStateJob = launch {
+                stateAsFlow().collect {
+                    logger.logDebug("device manager connection state:$it")
+                    if (it == ConnectionState.Ready) {
+                        bluetoothDevice?.let { device ->
+                            val sas = readSasSerial()
+                            _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceAvailable(device, sas)
+                            logger.logDebug(
+                                "device with address: ${bluetoothDevice?.address}, sas: $sas is ready"
+                            )
                         }
+                    } else if (it is ConnectionState.Disconnected) {
+                        _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceDisconnected(it.reason)
                     }
                 }
+            }
             listOf(scannerJob, connectionStateJob).joinAll()
         }
     }
@@ -86,7 +73,7 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         fundTable(0)
     }
 
-    suspend fun cancelCashOut() {
+    suspend fun cancel() {
         writeRequest(cancelCharacteristic, Base64.getEncoder().encode(0.toString().toByteArray()))
     }
 
@@ -96,13 +83,43 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         amountCharacteristic = gatt.getCharacteristic(SlotAndTableCharacteristics.AMOUNT_UUID)
         sasSerialCharacteristics = gatt.getCharacteristic(SlotAndTableCharacteristics.SERIAL_UUID)
 
+        var amount: String? = ""
+        var sas: String? = ""
+
         deviceManagerScope.launch {
-            setNotificationCallback(amountCharacteristic).with { device, data ->
-                data.value.toString().let {
-                    _slotAndTableStateFlow.value = SlotAndTableReaderState.Success(it)
+            setNotificationCallback(amountCharacteristic).with { _, data ->
+                amount = data.getStringValue(0)
+                when (amount) {
+                    "-1" ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.DeviceError(Exception("Cash out failed"))
+                    null ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.DeviceError(Exception("Unknown error"))
+                    else ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.Success(amount = amount ?: "", sas = sas ?: "")
                 }
+                logger.logDebug("amount notification data: $amount")
             }
-            //            enableNotifications(amountCharacteristic).suspend()
+            enableNotifications(amountCharacteristic).suspend()
+
+            setNotificationCallback(sasSerialCharacteristics).with { _, data ->
+                sas = data.getStringValue(0)
+                when (sas) {
+                    "-1" ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.DeviceError(Exception("Fund failed"))
+                    "table" ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.Success(amount = amount ?: "", sas = sas ?: "")
+                    null ->
+                        _slotAndTableStateFlow.value =
+                            SlotAndTableReaderState.DeviceError(Exception("Unknown error"))
+                }
+                logger.logDebug("sas serial notification data: $sas")
+            }
+            enableNotifications(sasSerialCharacteristics).suspend()
         }
     }
 
@@ -132,22 +149,8 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         }
     }
 
-    private suspend fun readSasSerial(callback: (Data) -> Unit) {
-        deviceManagerScope.launch {
-            readRequest(sasSerialCharacteristics) {
-                logger.logDebug("isDeviceBusy:${it.value}")
-                callback(it)
-            }
-        }
-    }
-
-    override suspend fun disconnectDevice() {
-        logger.logDebug("disconnect------------------------------------------- ")
-        scannerJob.cancel()
-        connectionStateJob.cancel()
-
-        super.disconnectDevice()
-    }
+    private suspend fun readSasSerial(): String =
+        readRequest(sasSerialCharacteristics) { data -> data.getStringValue(0) } ?: ""
 
     companion object {
         const val MINIMUM_RSSI = -65

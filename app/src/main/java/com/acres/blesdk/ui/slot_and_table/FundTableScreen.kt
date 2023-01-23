@@ -42,7 +42,7 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        when (state) {
+        when (val targetState = state) {
             is SlotAndTableReaderState.DeviceAvailable -> {
                 TextField(
                     value = value,
@@ -50,6 +50,7 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = TextFieldDefaults.textFieldColors(unfocusedIndicatorColor = Purple500),
                     singleLine = true,
+                    placeholder = { Text(text = "Enter amount") }
                 )
                 Spacer(modifier = Modifier.height(15.dp))
                 Button(
@@ -59,15 +60,14 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                         }
                     }
                 ) { Text(text = "Fund") }
+                Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
             is SlotAndTableReaderState.DeviceError -> {
                 Text(text = "Something went wrong. Please try again")
+                Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
             is SlotAndTableReaderState.DeviceDisconnected -> {
-                Text(
-                    text =
-                    "Device disconnected: ${(state as SlotAndTableReaderState.DeviceDisconnected).reason}"
-                )
+                Text(text = "Device disconnected: ${targetState.reason}")
             }
             is SlotAndTableReaderState.DiscoveredDevice -> {
                 CircularProgressIndicator()

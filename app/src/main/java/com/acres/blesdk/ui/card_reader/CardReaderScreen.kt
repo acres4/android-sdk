@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.ExperimentalLifecycleComposeApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.acres.ble.card_reader.CardReaderDeviceManager
+import com.acres.ble.card_reader.CardReaderState
 import com.acres.ble.card_reader.Track
 import com.acres.blesdk.ui.components.DropdownMenu
 import com.acres.blesdk.ui.theme.Purple500
@@ -35,7 +36,7 @@ fun CardReaderScreen(
     viewModel: CardReaderViewModel = hiltViewModel(),
 ) {
 
-    val state by viewModel.cardReaderState.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     var userId by rememberSaveable { mutableStateOf("") }
     var selectedTrack by rememberSaveable { mutableStateOf(Track.TRACK_1) }
@@ -49,7 +50,7 @@ fun CardReaderScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = state)
+        Text(text = state.infoText)
         Spacer(modifier = Modifier.height(15.dp))
         DropdownMenu(
             title = "Select track",
@@ -76,8 +77,8 @@ fun CardReaderScreen(
             }
         )
         Spacer(modifier = Modifier.height(15.dp))
-        if (state == "Device is available to use")
-            Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect") }
+        if (state.deviceState is CardReaderState.DeviceAvailable)
+            Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
         else
             Button(onClick = { viewModel.insertPlayerCard(selectedTrack, userId) }) {
                 Text(text = "Insert player card")

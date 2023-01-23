@@ -22,7 +22,7 @@ constructor(private val deviceManager: SlotAndTableDeviceManager) : ViewModel() 
 
     fun fundTable(amount: Int) = viewModelScope.launch { deviceManager.fundTable(amount) }
 
-    fun cancelCashOut() = viewModelScope.launch { deviceManager.cancelCashOut() }
+    fun cancelCashOut() = viewModelScope.launch { deviceManager.cancel() }
 
     fun cashOutTable() = viewModelScope.launch { deviceManager.cashOut() }
 
