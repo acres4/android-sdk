@@ -10,6 +10,7 @@ import android.content.Context
 import android.os.ParcelUuid
 import com.acres.ble.core.BaseDeviceManager
 import com.acres.ble.core.BleLogger
+import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.util.getCharacteristic
 import com.acres.ble.util.toBoolean
 import kotlinx.coroutines.Dispatchers
@@ -130,6 +131,10 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
         playerCardTrack1Characteristics = null
         playerCardTrack2Characteristics = null
         playerCardInsertCharacteristics = null
+    }
+
+    override fun handleScannerError(error: BleScannerError, message: String?) {
+        _cardReaderStateFlow.value = CardReaderState.ScannerError(error, message)
     }
 
     override fun handleScannedDevices(result: List<ScanResult>) {

@@ -5,6 +5,7 @@
 package com.acres.ble.card_reader
 
 import android.bluetooth.BluetoothDevice
+import com.acres.ble.core.model.BleScannerError
 
 sealed class CardReaderState {
 
@@ -12,6 +13,7 @@ sealed class CardReaderState {
     data class DiscoveredDevice(val result: BluetoothDevice, val rssi: Int) : CardReaderState()
     data class DeviceConnected(val device: BluetoothDevice) : CardReaderState()
     data class DeviceError(val exception: Exception) : CardReaderState()
+    data class ScannerError(val error: BleScannerError, val message: String?) : CardReaderState()
     object DeviceBusy : CardReaderState()
     data class DeviceAvailable(val device: BluetoothDevice) : CardReaderState()
     object DeviceDisconnected : CardReaderState()

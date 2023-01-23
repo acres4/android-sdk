@@ -10,6 +10,7 @@ import android.content.Context
 import android.os.ParcelUuid
 import com.acres.ble.core.BaseDeviceManager
 import com.acres.ble.core.BleLogger
+import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.util.getCharacteristic
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -147,6 +148,10 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
             stopScan()
             deviceManagerScope.launch { connectDevice(it) }
         }
+    }
+
+    override fun handleScannerError(error: BleScannerError, message: String?) {
+        _slotAndTableStateFlow.value = SlotAndTableReaderState.ScannerError(error, message)
     }
 
     private suspend fun readSasSerial(): String =

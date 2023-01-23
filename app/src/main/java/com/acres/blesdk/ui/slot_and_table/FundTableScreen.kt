@@ -81,6 +81,16 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                 Text(text = "Fund success")
                 Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
+            is SlotAndTableReaderState.ScannerError -> {
+                Text(
+                    text =
+                    if (targetState.message.isNullOrEmpty()) {
+                        "Scan failed with error: ${targetState.error}"
+                    } else {
+                        "Scan failed with error: ${targetState.message}"
+                    }
+                )
+            }
         }
     }
 }

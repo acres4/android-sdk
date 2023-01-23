@@ -55,6 +55,16 @@ fun CashOutScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                 Text(text = "Cash out success with amount of: ${targetState.amount}$")
                 Button(onClick = { viewModel.disconnect() }) { Text(text = "Disconnect device") }
             }
+            is SlotAndTableReaderState.ScannerError -> {
+                Text(
+                    text =
+                    if (targetState.message.isNullOrEmpty()) {
+                        "Scan failed with error: ${targetState.error}"
+                    } else {
+                        "Scan failed with error: ${targetState.message}"
+                    }
+                )
+            }
         }
     }
 }

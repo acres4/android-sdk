@@ -155,14 +155,18 @@ constructor(
         }
             .flowOn(ioDispatcher)
             .catch {
-                // TODO emit the error that is caught
+                handleScannerError(SCAN_FAILED_UNKNOWN_ERROR, it.message)
                 logger.logError("scan flow failed with message:${it.message}")
             }
             .collect {
                 Log.d("scannerState", "state$it")
                 when (it) {
                     is ScannerState.Error -> {
-                        handleError(it.error)
+                        if (it.error != NO_ERROR) {
+                            stopScan()
+                        }
+                        handleScannerError(it.error, "")
+                        logger.logError("scan failed with ${it.error.name}")
                     }
                     is ScannerState.Scanning -> {
 
@@ -174,29 +178,9 @@ constructor(
             }
 
     abstract fun handleScannedDevices(result: List<ScanResult>)
+    abstract fun handleScannerError(error: BleScannerError, message: String?)
 
     fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
-
-    private fun handleError(error: BleScannerError) {
-        logger.logError("scan failed with ${error.name}")
-        if (error != NO_ERROR) {
-            stopScan()
-        }
-        //        when (error) {
-        //            NO_ERROR -> TODO()
-        //            SCAN_FAILED_ALREADY_STARTED -> TODO()
-        //            SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> TODO()
-        //            SCAN_FAILED_INTERNAL_ERROR -> TODO()
-        //            SCAN_FAILED_FEATURE_UNSUPPORTED -> TODO()
-        //            SCAN_FAILED_OUT_OF_HARDWARE_RESOURCES -> TODO()
-        //            SCAN_FAILED_SCANNING_TOO_FREQUENTLY -> TODO()
-        //            SCAN_FAILED_BLUETOOTH_NOT_ENABLED -> TODO()
-        //            SCAN_FAILED_BLUETOOTH_PERMISSION_ABOVE_S_NOT_GRANTED -> TODO()
-        //            SCAN_FAILED_LOCATION_PERMISSION_NOT_GRANTED -> TODO()
-        //            SCAN_FAILED_BLUETOOTH_PERMISSION_NOT_GRANTED -> TODO()
-        //            SCAN_FAILED_UNKNOWN_ERROR -> TODO()
-        //        }
-    }
 
     suspend fun <T> readRequest(
         bluetoothGattCharacteristic: BluetoothGattCharacteristic?,

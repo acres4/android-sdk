@@ -56,6 +56,13 @@ constructor(private val cardReaderDeviceManager: CardReaderDeviceManager) : View
                         CardReaderState.DeviceDisconnected -> {
                             "Disconnected"
                         }
+                        is CardReaderState.ScannerError -> {
+                            if (deviceState.message.isNullOrEmpty()) {
+                                "Scan failed with error: ${deviceState.error}"
+                            } else {
+                                "Scan failed with error: ${deviceState.message}"
+                            }
+                        }
                     }
                 _state.update { it.copy(deviceState = deviceState, infoText = infoText) }
             }
