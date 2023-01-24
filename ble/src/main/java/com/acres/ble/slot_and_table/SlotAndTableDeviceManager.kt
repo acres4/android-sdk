@@ -21,9 +21,9 @@ import no.nordicsemi.android.ble.ktx.stateAsFlow
 import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
-import java.lang.Exception
 import java.util.Base64
 import java.util.UUID
+import kotlin.Exception
 
 class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger) :
     BaseDeviceManager(
@@ -152,6 +152,10 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
 
     override fun handleScannerError(error: BleScannerError, message: String?) {
         _slotAndTableStateFlow.value = SlotAndTableReaderState.ScannerError(error, message)
+    }
+
+    override fun handleException(e: Exception) {
+        _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceError(e)
     }
 
     private suspend fun readSasSerial(): String =

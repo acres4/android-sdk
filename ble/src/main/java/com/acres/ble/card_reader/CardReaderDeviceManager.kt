@@ -137,6 +137,10 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
         _cardReaderStateFlow.value = CardReaderState.ScannerError(error, message)
     }
 
+    override fun handleException(e: Exception) {
+        _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
+    }
+
     override fun handleScannedDevices(result: List<ScanResult>) {
         val device =
             result.sortedByDescending { it.rssi }.filter { it.rssi >= MINIMUM_RSSI }.firstOrNull { scan

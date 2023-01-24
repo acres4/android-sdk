@@ -90,6 +90,7 @@ constructor(
                     )
                     .suspend()
             } catch (e: Exception) {
+                handleException(e)
                 logger.logError(
                     "failed to connect to Bluetooth device with address:${device.address}", error = e
                 )
@@ -179,6 +180,7 @@ constructor(
 
     abstract fun handleScannedDevices(result: List<ScanResult>)
     abstract fun handleScannerError(error: BleScannerError, message: String?)
+    abstract fun handleException(e: Exception)
 
     fun stopScan() = scanCallback?.let { scanner.stopScan(it) }
 
@@ -194,7 +196,7 @@ constructor(
                     "read request failed",
                     "failed to read data from characteristic:${bluetoothGattCharacteristic?.uuid}"
                 )
-
+                handleException(e)
                 null
             }
         }
@@ -211,6 +213,7 @@ constructor(
                 )
                     .enqueue()
             } catch (e: Exception) {
+                handleException(e)
                 Log.e(
                     "write request failed",
                     "failed to write data:${data.toHexString()}, to characteristic:${bluetoothGattCharacteristic?.uuid}"
@@ -220,10 +223,12 @@ constructor(
     }
 
     open suspend fun disconnectDevice() {
+        stopScan()
         withContext(ioDispatcher) {
             try {
                 disconnect().suspend()
             } catch (e: Exception) {
+                handleException(e)
                 Log.e("disconnect", "disconnect failed with exception:$e")
             }
         }

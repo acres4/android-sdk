@@ -23,16 +23,15 @@ data class CardReaderScreenState(
 )
 
 @HiltViewModel
-class CardReaderViewModel
-@Inject
-constructor(private val cardReaderDeviceManager: CardReaderDeviceManager) : ViewModel() {
+class CardReaderViewModel @Inject constructor(private val deviceManager: CardReaderDeviceManager) :
+    ViewModel() {
 
     private val _state = MutableStateFlow(CardReaderScreenState())
     val state: StateFlow<CardReaderScreenState> = _state
 
     init {
         viewModelScope.launch {
-            cardReaderDeviceManager.cardReaderStateFlow.collect { deviceState ->
+            deviceManager.cardReaderStateFlow.collect { deviceState ->
                 Timber.d("cardReaderState: $deviceState")
                 val infoText =
                     when (deviceState) {
@@ -69,11 +68,8 @@ constructor(private val cardReaderDeviceManager: CardReaderDeviceManager) : View
         }
     }
 
-    fun insertPlayerCard(selectedTrack: Track, userId: String) {
-        cardReaderDeviceManager.insertPlayerCard(selectedTrack, userId)
-    }
+    fun insertPlayerCard(selectedTrack: Track, userId: String) =
+        deviceManager.insertPlayerCard(selectedTrack, userId)
 
-    fun disconnect() {
-        viewModelScope.launch { cardReaderDeviceManager.disconnectDevice() }
-    }
+    fun disconnect() = viewModelScope.launch { deviceManager.disconnectDevice() }
 }
