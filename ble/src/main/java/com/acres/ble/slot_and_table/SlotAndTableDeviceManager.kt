@@ -66,14 +66,23 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         }
     }
 
+    /**
+     * Used to fund table by writing to amountCharacteristic with the specified amount
+     *
+     * @param amount desired amount to be funded
+     */
     suspend fun fundTable(amount: Int) {
         writeRequest(amountCharacteristic, Base64.getEncoder().encode(amount.toString().toByteArray()))
     }
 
+    /** Writes zero to amountCharacteristic in order to request cash out from dealer */
     suspend fun cashOut() {
         fundTable(0)
     }
 
+    /**
+     * Used to reject cash out amount suggested by the dealer by writing zero to cancelCharacteristic
+     */
     suspend fun cancel() {
         writeRequest(cancelCharacteristic, Base64.getEncoder().encode(0.toString().toByteArray()))
     }

@@ -25,6 +25,7 @@ import no.nordicsemi.android.support.v18.scanner.ScanResult
 import java.io.IOException
 import java.util.UUID
 
+/** Track (characteristic) to be written to. */
 enum class Track {
     TRACK_1,
     TRACK_2
@@ -47,6 +48,19 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     private val _cardReaderStateFlow = MutableStateFlow<CardReaderState>(CardReaderState.Scanning)
     val cardReaderStateFlow: StateFlow<CardReaderState> = _cardReaderStateFlow
 
+    /**
+     * The insertPlayerCard method cards a player into an EGM. Once called the method will find a BLE
+     * device advertising the machine information service with signal strength greater than -65. After
+     * successful connection player card busy characteristic is being read and indicating weather
+     * physical card is inserted into PID or not. If card is inserted CardReaderDeviceManager will
+     * return DeviceBusy state and for the false case DeviceAvailable with device in it will be
+     * returned. Upon writing to player characteristics userId param should not exceed more than 79
+     * bytes for TRACK_1and 40 bytes for TRACK_2 otherwise DeviceError with exception provided will be
+     * thrown
+     *
+     * @param selectedTrack a track (characteristic) to be written to.
+     * @param userId user identification number.
+     */
     fun insertPlayerCard(selectedTrack: Track, userId: String) {
         try {
             deviceManagerScope.launch {
