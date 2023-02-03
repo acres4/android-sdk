@@ -173,11 +173,14 @@ constructor(
 
                         handleScannedDevices(it.result)
                     }
-                    is ScannerState.Started -> {}
+                    is ScannerState.Started -> {
+                        handleScanStarted()
+                    }
                     is ScannerState.Stopped -> {}
                 }
             }
 
+    abstract fun handleScanStarted()
     abstract fun handleScannedDevices(result: List<ScanResult>)
     abstract fun handleScannerError(error: BleScannerError, message: String?)
     abstract fun handleException(e: Exception)

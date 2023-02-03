@@ -4,6 +4,7 @@
  */
 package com.acres.ble.slot_and_table
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.content.Context
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import no.nordicsemi.android.ble.ktx.state.ConnectionState
 import no.nordicsemi.android.ble.ktx.stateAsFlow
-import no.nordicsemi.android.ble.ktx.suspend
 import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat
 import no.nordicsemi.android.support.v18.scanner.ScanResult
 import java.util.Base64
@@ -39,11 +39,11 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
     private var amountCharacteristic: BluetoothGattCharacteristic? = null
 
     private val _slotAndTableStateFlow =
-        MutableStateFlow<SlotAndTableReaderState>(SlotAndTableReaderState.Scanning)
+        MutableStateFlow<SlotAndTableReaderState>(SlotAndTableReaderState.None("none"))
     val slotAndTableStateFlow: StateFlow<SlotAndTableReaderState> =
         _slotAndTableStateFlow.asStateFlow()
 
-    init {
+    suspend fun findDevice() {
         deviceManagerScope.launch {
             val scannerJob = launch { startScanFlow() }
             val connectionStateJob = launch {
@@ -112,7 +112,14 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
                 }
                 logger.logDebug("amount notification data: $amount")
             }
-            enableNotifications(amountCharacteristic).suspend()
+            beginAtomicRequestQueue()
+                .add(
+                    enableNotifications(amountCharacteristic).fail { _: BluetoothDevice?, status: Int ->
+                        logger.logError("Could not subscribe amount notification: $status")
+                    }
+                )
+                .done { logger.logDebug("Target initialized") }
+                .enqueue()
 
             setNotificationCallback(sasSerialCharacteristics).with { _, data ->
                 sas = data.getStringValue(0)
@@ -129,7 +136,15 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
                 }
                 logger.logDebug("sas serial notification data: $sas")
             }
-            enableNotifications(sasSerialCharacteristics).suspend()
+            beginAtomicRequestQueue()
+                .add(
+                    enableNotifications(sasSerialCharacteristics).fail { _: BluetoothDevice?, status: Int
+                        ->
+                        logger.logError("Could not subscribe serial notification: $status")
+                    }
+                )
+                .done { logger.logDebug("Target initialized") }
+                .enqueue()
         }
     }
 
@@ -165,6 +180,10 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
 
     override fun handleException(e: Exception) {
         _slotAndTableStateFlow.value = SlotAndTableReaderState.DeviceError(e)
+    }
+
+    override fun handleScanStarted() {
+        _slotAndTableStateFlow.value = SlotAndTableReaderState.Scanning
     }
 
     private suspend fun readSasSerial(): String =

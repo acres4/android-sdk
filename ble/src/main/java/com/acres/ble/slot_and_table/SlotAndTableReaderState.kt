@@ -10,6 +10,7 @@ import no.nordicsemi.android.ble.ktx.state.ConnectionState.Disconnected.Reason
 
 sealed class SlotAndTableReaderState {
 
+    data class None(val state: String) : SlotAndTableReaderState()
     object Scanning : SlotAndTableReaderState()
     data class Success(val amount: String, val sas: String) : SlotAndTableReaderState()
     data class DiscoveredDevice(val result: BluetoothDevice, val rssi: Int) :
