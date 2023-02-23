@@ -47,6 +47,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
 
     private val _cardReaderStateFlow = MutableStateFlow<CardReaderState>(CardReaderState.Scanning)
     val cardReaderStateFlow: StateFlow<CardReaderState> = _cardReaderStateFlow
+    private val deviceMap = HashMap<String, Int>()
 
     /**
      * The insertPlayerCard method cards a player into an EGM. Once called the method will find a BLE
@@ -157,19 +158,38 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
 
     override fun handleScannedDevices(result: List<ScanResult>) {
         val device =
-            result.sortedByDescending { it.rssi }.filter { it.rssi >= MINIMUM_RSSI }.firstOrNull { scan
-                ->
+            result.sortedByDescending { it.rssi }.firstOrNull { scan ->
                 scan.scanRecord?.serviceUuids?.any {
                     it == ParcelUuid(UUID.fromString("c83fe52e-0ab5-49d9-9817-98982b4c48a3"))
                 } == true
             }
-        logger.logDebug("scanned devices found acres device:$device ")
 
-        device?.device?.let {
-            _cardReaderStateFlow.value = CardReaderState.DiscoveredDevice(it, device.rssi)
-            logger.logDebug("connecting to device:$device ")
-            stopScan()
-            deviceManagerScope.launch { connectDevice(it) }
+        var currentCount: Int
+        val currentDeviceMac = device?.device?.address ?: ""
+
+        val keyExists = deviceMap[currentDeviceMac] != null
+        if (!keyExists) {
+            deviceMap.clear()
+            deviceMap[currentDeviceMac] = 0
+        }
+
+        currentCount = deviceMap[currentDeviceMac] ?: 0
+
+        if ((device?.rssi ?: -99) >= MINIMUM_RSSI) {
+            currentCount += 1
+            deviceMap[currentDeviceMac] = currentCount
+        } else if ((device?.rssi ?: -99) > -99) {
+            deviceMap[currentDeviceMac] = 0
+            currentCount = 0
+        }
+
+        if ((deviceMap[currentDeviceMac] ?: 0) > 15) {
+            device?.device?.let {
+                _cardReaderStateFlow.value = CardReaderState.DiscoveredDevice(it, device.rssi)
+                logger.logDebug("connecting to device:$device ")
+                stopScan()
+                deviceManagerScope.launch { connectDevice(it) }
+            }
         }
     }
 
