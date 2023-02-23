@@ -73,6 +73,7 @@ fun FundTableScreen(viewModel: SlotAndTableViewModel = hiltViewModel()) {
                 CircularProgressIndicator()
                 Text(text = "Device is discovered!")
             }
+            is SlotAndTableReaderState.None -> {}
             SlotAndTableReaderState.Scanning -> {
                 CircularProgressIndicator()
                 Text(text = "Scanning...")
