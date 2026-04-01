@@ -114,6 +114,12 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                         "Cannot write more than $TRACK_2_MAX_BYTE_LENGTH bytes to the ${playerCardTrack2Characteristics?.uuid} characteristic"
                     )
         }
+        writePlayerCardInserted()
+        _cardReaderStateFlow.value = CardReaderState.CardInserted
+    }
+
+    private suspend fun writePlayerCardInserted() {
+        writeRequest(playerCardInsertCharacteristics, byteArrayOf(1))
     }
 
     private suspend fun writePlayerCardTrack1(userId: String) {
