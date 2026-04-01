@@ -44,6 +44,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     private var playerCardTrack1Characteristics: BluetoothGattCharacteristic? = null
     private var playerCardTrack2Characteristics: BluetoothGattCharacteristic? = null
     private var playerCardInsertCharacteristics: BluetoothGattCharacteristic? = null
+    private var sasSerialCharacteristics: BluetoothGattCharacteristic? = null
 
     private val _cardReaderStateFlow = MutableStateFlow<CardReaderState>(CardReaderState.Scanning)
     val cardReaderStateFlow: StateFlow<CardReaderState> = _cardReaderStateFlow
@@ -139,6 +140,31 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
             gatt.getCharacteristic(CardReaderCharacteristics.PLAYER_CARD_TRACK2_UUID)
         playerCardInsertCharacteristics =
             gatt.getCharacteristic(CardReaderCharacteristics.PLAYER_CARD_INSERT_UUID)
+        sasSerialCharacteristics = gatt.getCharacteristic(CardReaderCharacteristics.SERIAL_UUID)
+    }
+
+    suspend fun findDevice() {
+        deviceManagerScope.launch {
+            val scannerJob = launch { startScanFlow() }
+            val connectionStateJob = launch {
+                stateAsFlow().collect {
+                    logger.logDebug("device manager connection state:$it")
+                    if (it == ConnectionState.Ready) {
+                        bluetoothDevice?.let { device ->
+                            val sas = readSasSerial()
+                            _cardReaderStateFlow.value = CardReaderState.DeviceFound(device, sas)
+                            logger.logDebug(
+                                "device with address: ${bluetoothDevice?.address}, sas: $sas is ready"
+                            )
+                        }
+                    } else if (it is ConnectionState.Disconnected) {
+
+                        _cardReaderStateFlow.value = CardReaderState.DeviceDisconnected
+                    }
+                }
+            }
+            listOf(scannerJob, connectionStateJob).joinAll()
+        }
     }
 
     override fun clearCharacteristics() {
@@ -146,6 +172,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
         playerCardTrack1Characteristics = null
         playerCardTrack2Characteristics = null
         playerCardInsertCharacteristics = null
+        sasSerialCharacteristics = null
     }
 
     override fun handleScannerError(error: BleScannerError, message: String?) {
@@ -187,7 +214,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
             currentCount = 0
         }
 
-        if ((deviceMap[currentDeviceMac] ?: 0) > 15) {
+        if ((deviceMap[currentDeviceMac] ?: 0) > 3) {
             device?.device?.let {
                 _cardReaderStateFlow.value = CardReaderState.DiscoveredDevice(it, device.rssi)
                 logger.logDebug("connecting to device:$device ")
@@ -196,6 +223,9 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
             }
         }
     }
+
+    private suspend fun readSasSerial(): String =
+        readRequest(sasSerialCharacteristics) { data -> data.getStringValue(0) } ?: ""
 
     companion object {
         const val MINIMUM_RSSI = -65

@@ -16,5 +16,6 @@ sealed class CardReaderState {
     data class ScannerError(val error: BleScannerError, val message: String?) : CardReaderState()
     object DeviceBusy : CardReaderState()
     data class DeviceAvailable(val device: BluetoothDevice) : CardReaderState()
+    data class DeviceFound(val device: BluetoothDevice, val sasSerial: String?) : CardReaderState()
     object DeviceDisconnected : CardReaderState()
 }
