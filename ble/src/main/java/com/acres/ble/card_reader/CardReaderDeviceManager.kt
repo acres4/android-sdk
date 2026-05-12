@@ -78,7 +78,11 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                                     _cardReaderStateFlow.value = CardReaderState.DeviceBusy
                                 } else {
                                     _cardReaderStateFlow.value = CardReaderState.DeviceAvailable(device)
-                                    handleWriteToPlayerCardCharacteristics(selectedTrack, userId)
+                                    try {
+                                        handleWriteToPlayerCardCharacteristics(selectedTrack, userId)
+                                    } catch (e: Exception) {
+                                        _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
+                                    }
                                 }
                             }
 
@@ -88,7 +92,9 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                             //                    startScanFlow()
                             //                }
                         } else if (it == ConnectionState.Disconnecting) {
+                            //                            if (!disconnectInitiated) {
                             _cardReaderStateFlow.value = CardReaderState.DeviceDisconnected
+                            //                            }
                         }
                     }
                 }
@@ -99,36 +105,60 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
         }
     }
 
-    private suspend fun handleWriteToPlayerCardCharacteristics(selectedTrack: Track, userId: String) {
-        when (selectedTrack) {
-            Track.TRACK_1 ->
-                if (userId.toByteArray().size <= TRACK_1_MAX_BYTE_LENGTH) writePlayerCardTrack1(userId)
-                else
-                    throw IOException(
-                        "Cannot write more than $TRACK_1_MAX_BYTE_LENGTH bytes to the ${playerCardTrack1Characteristics?.uuid} characteristic"
-                    )
-            Track.TRACK_2 ->
-                if (userId.toByteArray().size <= TRACK_2_MAX_BYTE_LENGTH) writePlayerCardTrack2(userId)
-                else
-                    throw IOException(
-                        "Cannot write more than $TRACK_2_MAX_BYTE_LENGTH bytes to the ${playerCardTrack2Characteristics?.uuid} characteristic"
-                    )
+    fun removePlayerCard() {
+        deviceManagerScope.launch {
+            try {
+                if (!isConnected) {
+                    _cardReaderStateFlow.value =
+                        CardReaderState.DeviceError(IllegalStateException("Device is not connected"))
+                    return@launch
+                }
+                val written = writePlayerCardRemoved()
+                if (!written) {
+                    return@launch
+                }
+                disconnectDevice()
+                _cardReaderStateFlow.value = CardReaderState.CardRemoved
+            } catch (e: Exception) {
+                _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
+            }
         }
-        writePlayerCardInserted()
+    }
+
+    private suspend fun handleWriteToPlayerCardCharacteristics(selectedTrack: Track, userId: String) {
+        val trackWritten =
+            when (selectedTrack) {
+                Track.TRACK_1 ->
+                    if (userId.toByteArray().size <= TRACK_1_MAX_BYTE_LENGTH)
+                        writePlayerCardTrack1(userId)
+                    else
+                        throw IOException(
+                            "Cannot write more than $TRACK_1_MAX_BYTE_LENGTH bytes to the ${playerCardTrack1Characteristics?.uuid} characteristic"
+                        )
+                Track.TRACK_2 ->
+                    if (userId.toByteArray().size <= TRACK_2_MAX_BYTE_LENGTH)
+                        writePlayerCardTrack2(userId)
+                    else
+                        throw IOException(
+                            "Cannot write more than $TRACK_2_MAX_BYTE_LENGTH bytes to the ${playerCardTrack2Characteristics?.uuid} characteristic"
+                        )
+            }
+        if (!trackWritten) return
+        if (!writePlayerCardInserted()) return
         _cardReaderStateFlow.value = CardReaderState.CardInserted
     }
 
-    private suspend fun writePlayerCardInserted() {
+    private suspend fun writePlayerCardInserted(): Boolean =
         writeRequest(playerCardInsertCharacteristics, byteArrayOf(1))
-    }
 
-    private suspend fun writePlayerCardTrack1(userId: String) {
+    private suspend fun writePlayerCardRemoved(): Boolean =
+        writeRequest(playerCardInsertCharacteristics, byteArrayOf(0))
+
+    private suspend fun writePlayerCardTrack1(userId: String): Boolean =
         writeRequest(playerCardTrack1Characteristics, userId.toByteArray())
-    }
 
-    private suspend fun writePlayerCardTrack2(userId: String) {
+    private suspend fun writePlayerCardTrack2(userId: String): Boolean =
         writeRequest(playerCardTrack2Characteristics, userId.toByteArray())
-    }
 
     private suspend fun isDeviceBusy(): Boolean =
         readRequest(playerCardStatusCharacteristics) {

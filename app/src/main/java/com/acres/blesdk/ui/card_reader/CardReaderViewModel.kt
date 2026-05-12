@@ -35,9 +35,12 @@ class CardReaderViewModel @Inject constructor(private val deviceManager: CardRea
                 Timber.d("cardReaderState: $deviceState")
                 val infoText =
                     when (deviceState) {
+                        is CardReaderState.DeviceFound -> "Device is Found"
+                        is CardReaderState.CardInserted -> "Device is inserted"
+                        is CardReaderState.CardRemoved -> "Card removed"
                         is CardReaderState.DeviceAvailable ->
                             "Device ${deviceState.device} is available to use"
-                        CardReaderState.DeviceBusy -> {
+                        is CardReaderState.DeviceBusy -> {
                             "Device is busy"
                         }
                         is CardReaderState.DeviceConnected -> {
@@ -70,6 +73,8 @@ class CardReaderViewModel @Inject constructor(private val deviceManager: CardRea
 
     fun insertPlayerCard(selectedTrack: Track, userId: String) =
         deviceManager.insertPlayerCard(selectedTrack, userId)
+
+    fun removePlayerCard() = deviceManager.removePlayerCard()
 
     fun disconnect() = viewModelScope.launch { deviceManager.disconnectDevice() }
 }

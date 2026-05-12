@@ -208,19 +208,21 @@ constructor(
     suspend fun writeRequest(
         bluetoothGattCharacteristic: BluetoothGattCharacteristic?,
         data: ByteArray,
-    ) {
-        withContext(ioDispatcher) {
+    ): Boolean {
+        return withContext(ioDispatcher) {
             try {
                 writeCharacteristic(
                     bluetoothGattCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
-                    .enqueue()
+                    .suspend()
+                true
             } catch (e: Exception) {
                 handleException(e)
                 Log.e(
                     "write request failed",
                     "failed to write data:${data.toHexString()}, to characteristic:${bluetoothGattCharacteristic?.uuid}"
                 )
+                false
             }
         }
     }

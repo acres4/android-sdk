@@ -19,4 +19,5 @@ sealed class CardReaderState {
     data class DeviceFound(val device: BluetoothDevice, val sasSerial: String?) : CardReaderState()
     object DeviceDisconnected : CardReaderState()
     object CardInserted : CardReaderState()
+    object CardRemoved : CardReaderState()
 }
