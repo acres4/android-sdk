@@ -20,4 +20,6 @@ sealed class CardReaderState {
     object DeviceDisconnected : CardReaderState()
     object CardInserted : CardReaderState()
     object CardRemoved : CardReaderState()
+    object ScanTimeout : CardReaderState()
+    object NotConnected : CardReaderState()
 }

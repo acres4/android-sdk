@@ -58,6 +58,12 @@ class CardReaderViewModel @Inject constructor(private val deviceManager: CardRea
                         CardReaderState.DeviceDisconnected -> {
                             "Disconnected"
                         }
+                        CardReaderState.ScanTimeout -> {
+                            "Scan timed out — no device in range"
+                        }
+                        CardReaderState.NotConnected -> {
+                            "Not connected — insert a card first"
+                        }
                         is CardReaderState.ScannerError -> {
                             if (deviceState.message.isNullOrEmpty()) {
                                 "Scan failed with error: ${deviceState.error}"
@@ -72,9 +78,9 @@ class CardReaderViewModel @Inject constructor(private val deviceManager: CardRea
     }
 
     fun insertPlayerCard(selectedTrack: Track, userId: String) =
-        deviceManager.insertPlayerCard(selectedTrack, userId)
+        viewModelScope.launch { deviceManager.insertPlayerCard(selectedTrack, userId) }
 
-    fun removePlayerCard() = deviceManager.removePlayerCard()
+    fun removePlayerCard() = viewModelScope.launch { deviceManager.removePlayerCard() }
 
     fun disconnect() = viewModelScope.launch { deviceManager.disconnectDevice() }
 }
