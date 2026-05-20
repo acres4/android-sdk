@@ -13,7 +13,6 @@ import com.acres.ble.core.BaseDeviceManager
 import com.acres.ble.core.BleLogger
 import com.acres.ble.core.model.BleScannerError
 import com.acres.ble.util.getCharacteristic
-import com.acres.ble.util.toBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -65,8 +64,10 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     private var scannerJob: Job? = null
 
     init {
-        // Single persistent watcher that surfaces unexpected/intentional disconnects as state.
-        // Replaces the per-call disconnect handling that used to live in ad-hoc collectors.
+        // Persistent watcher that surfaces every disconnect — both consumer-initiated
+        // (via the inherited disconnectDevice()) and unexpected (EGM out of range, etc.).
+        // insertPlayerCard / removePlayerCard intentionally do NOT disconnect on
+        // success; the consumer must call disconnectDevice() when done with the EGM.
         deviceManagerScope.launch {
             stateAsFlow().collect { state ->
                 if (state is ConnectionState.Disconnected) {
@@ -79,11 +80,9 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     /**
      * Cards a player into an EGM. Scans for an Acres device with RSSI >= -65, connects, reads the
      * player-card-busy characteristic, and on a non-busy device writes the user id to the chosen
-     * track and then flips the insert characteristic to 1. Disconnects on success.
-     *
-     * Disconnect-after-success is deliberate: if the player walks away with the card still inserted
-     * and the phone stays in BLE range, an open connection would keep the EGM locked. Diverges from
-     * the iOS SDK on purpose.
+     * track and then flips the insert characteristic to 1. Stays connected on success — the consumer
+     * must call the inherited [disconnectDevice] when done with the EGM, otherwise the open
+     * connection keeps the EGM locked to this phone.
      *
      * @param selectedTrack track (characteristic) to write to.
      * @param userId user identification number; <= 79 bytes for TRACK_1, <= 40 for TRACK_2.
@@ -96,7 +95,6 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
 
                 if (isDeviceBusy()) {
                     writePlayerCardRemoved()
-                    safeDisconnect()
                     _cardReaderStateFlow.value = CardReaderState.DeviceBusy
                     return
                 }
@@ -114,36 +112,30 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                 if (!writeRequest(characteristic, data)) return
                 if (!writePlayerCardInserted()) return
 
-                safeDisconnect()
-                // Set after disconnect so the persistent disconnect watcher doesn't overwrite us.
                 _cardReaderStateFlow.value = CardReaderState.CardInserted
             } catch (_: TimeoutCancellationException) {
                 _cardReaderStateFlow.value = CardReaderState.ScanTimeout
-                safeDisconnect()
             } catch (e: Exception) {
                 _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
-                safeDisconnect()
             }
         }
     }
 
     /**
-     * Cards a player out of an EGM by writing 0 to the insert characteristic. Scans/connects fresh
-     * (insertPlayerCard already disconnected on success), then disconnects again after the write.
+     * Cards a player out of an EGM by writing 0 to the insert characteristic. Reuses an existing
+     * connection if present, otherwise scans/connects. Stays connected on success — call
+     * [disconnectDevice] when done.
      */
     suspend fun removePlayerCard() {
         operationMutex.withLock {
             try {
                 ensureConnected()
                 if (!writePlayerCardRemoved()) return
-                safeDisconnect()
                 _cardReaderStateFlow.value = CardReaderState.CardRemoved
             } catch (_: TimeoutCancellationException) {
                 _cardReaderStateFlow.value = CardReaderState.ScanTimeout
-                safeDisconnect()
             } catch (e: Exception) {
                 _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
-                safeDisconnect()
             }
         }
     }
@@ -157,10 +149,8 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                 _cardReaderStateFlow.value = CardReaderState.DeviceFound(device, sas)
             } catch (_: TimeoutCancellationException) {
                 _cardReaderStateFlow.value = CardReaderState.ScanTimeout
-                safeDisconnect()
             } catch (e: Exception) {
                 _cardReaderStateFlow.value = CardReaderState.DeviceError(e)
-                safeDisconnect()
             }
         }
     }
@@ -186,14 +176,6 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
                 ?: throw IllegalStateException("connection ready but bluetoothDevice is null")
         }
 
-    private suspend fun safeDisconnect() {
-        try {
-            if (isConnected) disconnectDevice()
-        } catch (e: Exception) {
-            logger.logError("safeDisconnect failed", error = e)
-        }
-    }
-
     private suspend fun writePlayerCardInserted(): Boolean =
         writeRequest(playerCardInsertCharacteristics, byteArrayOf(1))
 
@@ -201,9 +183,12 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
         writeRequest(playerCardInsertCharacteristics, byteArrayOf(0))
 
     private suspend fun isDeviceBusy(): Boolean =
-        readRequest(playerCardStatusCharacteristics) {
-            logger.logDebug("isDeviceBusy:${it.getByte(0)?.toBoolean()}")
-            it.getByte(0)?.toBoolean() ?: true
+        readRequest(playerCardStatusCharacteristics) { data ->
+            // Firmware writes 1 when a card is currently inserted (device busy), 0 when free.
+            // Treat a missing byte as busy to be conservative.
+            val raw = data.getByte(0)
+            logger.logDebug("isDeviceBusy raw byte:$raw")
+            raw == null || raw == 0x01.toByte()
         } == true
 
     private suspend fun readSasSerial(): String =
