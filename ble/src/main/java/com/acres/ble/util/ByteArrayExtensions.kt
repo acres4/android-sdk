@@ -41,8 +41,4 @@ fun ByteArray.chunkedSequence(chunk: Int): Sequence<ByteArray> {
     }
 }
 
-fun Byte.toBoolean(): Boolean =
-    when (this) {
-        0.toByte() -> true
-        else -> false
-    }
+fun Byte.toBoolean(): Boolean = this == 0x01.toByte()
