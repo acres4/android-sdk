@@ -261,7 +261,7 @@ class CardReaderDeviceManager(context: Context, private val logger: BleLogger) :
     }
 
     companion object {
-        const val MINIMUM_RSSI = -65
+        const val MINIMUM_RSSI = -50
         const val TRACK_1_MAX_BYTE_LENGTH = 79
         const val TRACK_2_MAX_BYTE_LENGTH = 40
         private const val REQUIRED_CONSECUTIVE_HITS = 3
