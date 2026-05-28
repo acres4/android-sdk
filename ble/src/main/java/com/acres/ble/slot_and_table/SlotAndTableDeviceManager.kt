@@ -190,7 +190,7 @@ class SlotAndTableDeviceManager(context: Context, private val logger: BleLogger)
         readRequest(sasSerialCharacteristics) { data -> data.getStringValue(0) } ?: ""
 
     companion object {
-        const val MINIMUM_RSSI = -65
+        const val MINIMUM_RSSI = -50
     }
 }
 
