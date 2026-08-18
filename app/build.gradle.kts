@@ -74,6 +74,7 @@ android {
 
 dependencies {
     implementation(project(":ble"))
+
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar"))))
     implementation(Libs.DependencyInjection.hiltAndroid)
     kapt(Libs.DependencyInjection.hiltAndroidCompiler)
