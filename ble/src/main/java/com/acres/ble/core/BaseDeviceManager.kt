@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import no.nordicsemi.android.ble.BleManager
 import no.nordicsemi.android.ble.PhyRequest
 import no.nordicsemi.android.ble.data.Data
@@ -100,7 +101,11 @@ constructor(
 
     abstract fun clearCharacteristics()
 
-    suspend fun startScanFlow(reportDelay: Long = 1000) =
+    // reportDelay 0 delivers results per advertisement via onScanResult. At the
+    // previous 1000ms the scanner batched once a second, so a gate needing N
+    // consecutive hits could not clear in under N seconds — a successful card-in
+    // was measured spending 9 of its 10 second budget here.
+    suspend fun startScanFlow(reportDelay: Long = 0) =
         callbackFlow {
             scanCallback =
                 object : ScanCallback() {
@@ -193,7 +198,9 @@ constructor(
     ): T? {
         return withContext(ioDispatcher) {
             try {
-                mapToResponse(readCharacteristic(bluetoothGattCharacteristic).suspend())
+                withTimeout(GATT_OPERATION_TIMEOUT_MS) {
+                    mapToResponse(readCharacteristic(bluetoothGattCharacteristic).suspend())
+                }
             } catch (e: Exception) {
                 Log.e(
                     "read request failed",
@@ -211,10 +218,12 @@ constructor(
     ): Boolean {
         return withContext(ioDispatcher) {
             try {
-                writeCharacteristic(
-                    bluetoothGattCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                )
-                    .suspend()
+                withTimeout(GATT_OPERATION_TIMEOUT_MS) {
+                    writeCharacteristic(
+                        bluetoothGattCharacteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                    )
+                        .suspend()
+                }
                 true
             } catch (e: Exception) {
                 handleException(e)
@@ -237,5 +246,13 @@ constructor(
                 Log.e("disconnect", "disconnect failed with exception:$e")
             }
         }
+    }
+
+    companion object {
+        // Bounds a single GATT read/write. Without it an EGM that never sends a
+        // response leaves the coroutine suspended forever: insertPlayerCard never
+        // returns, the platform channel never completes, and the UI hangs with no
+        // error to show.
+        private const val GATT_OPERATION_TIMEOUT_MS = 10_000L
     }
 }
